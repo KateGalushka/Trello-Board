@@ -3,66 +3,90 @@
 	import draggable from "vuedraggable";
 	import type { Card, Task, ID } from "~/types";
 
-	const cards = useLocalStorage<Card[]>(
-		"Trello board",
-		[
-			{
-				id: nanoid(),
-				title: "My studies",
-				tasks: [
-					{
-						id: nanoid(),
-						title: "Create landing page",
-						createdAt: new Date(),
-					},
-					{
-						id: nanoid(),
-						title: "Read Nuxt docs",
-						createdAt: new Date(),
-					},
-					{
-						id: nanoid(),
-						title: "Make JS exercises",
-						createdAt: new Date(),
-					},
-				],
-			},
-			{
-				id: nanoid(),
-				title: "Job search",
-				tasks: [],
-			},
-			{
-				id: nanoid(),
-				title: "Shopping",
-				tasks: [],
-			},
-			{
-				id: nanoid(),
-				title: "The chores",
-				tasks: [],
-			},
-			{
-				id: nanoid(),
-				title: "Complete",
-				tasks: [],
-			},
-		],
+	const cardsData: Card[] = [
 		{
-			serializer: {
-				read: (value) => {
-					return JSON.parse(value).map((card: Card) => {
-						card.tasks = card.tasks.map((task: Task) => {
-							task.createdAt = new Date(task.createdAt)
-							return task
-						})
-						return card
-					})
+			id: nanoid(),
+			title: "My studies",
+			tasks: [
+				{
+					id: nanoid(),
+					title: "Create landing page",
+					createdAt: new Date(),
 				},
-				write: (value) => JSON.stringify(value),
+				{
+					id: nanoid(),
+					title: "Read Nuxt docs",
+					createdAt: new Date(),
+				},
+				{
+					id: nanoid(),
+					title: "Make JS exercises",
+					createdAt: new Date(),
+				},
+			],
+		},
+		{
+			id: nanoid(),
+			title: "Job search",
+			tasks: [],
+		},
+		{
+			id: nanoid(),
+			title: "Shopping",
+			tasks: [],
+		},
+		{
+			id: nanoid(),
+			title: "The chores",
+			tasks: [],
+		},
+		{
+			id: nanoid(),
+			title: "Complete",
+			tasks: [],
+		},
+	];
+
+	const storedCards = useLocalStorage<Card[]>("Trello board", cardsData, {
+		serializer: {
+			read: (value) => {
+				return JSON.parse(value).map((card: Card) => {
+					card.tasks = card.tasks.map((task: Task) => {
+						task.createdAt = new Date(task.createdAt);
+						return task;
+					});
+					return card;
+				});
 			},
+			write: (value) => JSON.stringify(value),
+		},
+	});
+
+	const noStoredCards = computed(() => !storedCards.value.length);
+
+	const isHidden = ref<boolean>(true);
+	const isButtonString = computed(() => {
+		if(!isHidden.value) {
+			return false;
 		}
-	)
+		return true;
+	});
+
+	const taskSearchString = ref<string>("");
+
+	const filteredCards = computed(() => {
+		const search = taskSearchString.value.toLocaleLowerCase();
+		if (!search) {
+			return storedCards.value;
+		}
+		return storedCards.value.filter((card: Card) =>
+			card.tasks.find((task: Task) =>
+				task.title.toLowerCase().includes(search)
+			)
+		);
+	});
+
+	const noCardFound = computed(() => !filteredCards.value.length);
 
 	// watch(
 	// 	cards,
@@ -72,42 +96,90 @@
 	// 	{deep: true}
 	// )
 
-	const alt = useKeyModifier("Alt")
+	const alt = useKeyModifier("Alt");
 
 	function createCard() {
 		const card: Card = {
 			id: nanoid(),
 			title: "",
 			tasks: [],
-		}
-		cards.value.push(card)
+		};
+		storedCards.value.push(card);
 		nextTick(() => {
 			(
 				document.querySelector(
 					".card:last-of-type .title-input"
 				) as HTMLInputElement
-			).focus()
-		})
+			).focus();
+		});
 	}
 	function deleteCard(id: ID) {
-		cards.value = cards.value.filter((card) => card.id !== id)
+		storedCards.value = storedCards.value.filter((card) => card.id !== id);
 	}
 </script>
 <template>
 	<div class="flex flex-col items-start gap-4">
-		<button
-			class="bg-gray-200 whitespace-nowrap p-2 rounded opacity-50"
-			@click="createCard"
+		<div class="flex flex-wrap gap-4 items-center">
+			<button
+				class="bg-gray-200 whitespace-nowrap p-2 rounded opacity-50 font-semibold hover:opacity-80 mx-auto transition-all"
+				@click="createCard"
+			>
+				+ Add A Card
+			</button>
+			<div class="flex flex-wrap gap-2 items-center mx-auto">
+				<input
+					type="text"
+					name="search"
+					id="search"
+					placeholder="Search a task"
+					class="p-2 border-0 focus:outline-0 mr-2 rounded relative"
+					:class="{ hidden: isHidden }"
+					v-model="taskSearchString"
+				/>
+				<button
+					class="bg-gray-200 mr-2 border-0 outline-0 rounded text-center p-2 hover:bg-gray-300 transition-all"
+					@click="isHidden = false"
+				>
+					<img
+						src="/public/loupe.png"
+						alt="search-icon"
+						class="inline-block h-[20px]"
+					/>
+					<span v-if="isButtonString" class="ml-2">Search a task</span>
+				</button>
+				<button
+					class="bg-gray-200 border-0 outline-0 rounded text-center p-2"
+					:class="{ hidden: isHidden || !taskSearchString }"
+					@click="taskSearchString = ''"
+				>
+					<img
+						src="/public/clear.png"
+						alt="clear filter"
+						class="inline-block mr-2 h-[20px]"
+					/>
+					<span>Clear search</span>
+				</button>
+			</div>
+		</div>
+		<div
+			v-if="noStoredCards"
+			class="text-xl text-gray-200 mt-4"
 		>
-			+ Add A Card
-		</button>
+			The Board is empty!
+		</div>
+		<div
+			v-if="noCardFound"
+			class="text-xl text-gray-200 mt-4"
+		>
+			No card found! Try input another search.
+		</div>
 		<draggable
-			v-model="cards"
-			group="cards"
+			v-model="filteredCards"
+			group="filteredCards"
 			:animation="200"
 			handle=".drag-handle"
 			item-key="id"
-			class="flex gap-4 flex-wrap sm:justify-center md:justify-center md:align-center lg:justify-start"
+			class="flex gap-4 flex-wrap justify-center md:align-center xl:justify-start"
 		>
 			<template #item="{ element: card }: { element: Card }">
 				<div class="card bg-gray-200 p-5 rounded min-w-[250px]">
@@ -128,7 +200,7 @@
 						<img
 							src="/delete.png"
 							alt="delete"
-							class="size-9 p-2"
+							class="size-9 p-2 cursor-pointer rounded hover:ring-1 hover:ring-rose-600"
 							@click="deleteCard(card.id)"
 						/>
 					</header>
@@ -160,7 +232,15 @@
 				</div>
 			</template>
 		</draggable>
+		<ul class="font-semibold italic">
+			<li>* To delete a task - use BackSpace</li>
+			<li>* To copy a task to another card - use Alt and drag</li>
+		</ul>
 	</div>
 </template>
 
-<style scoped></style>
+<style scoped>
+	.hidden {
+		display: none;
+	}
+</style>
